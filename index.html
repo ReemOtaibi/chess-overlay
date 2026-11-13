@@ -3,34 +3,46 @@
 <head>
 <meta charset="utf-8">
 <style>
-  html, body { margin:0; height:100%; background:#00b140; display:flex; align-items:center; justify-content:center; font-family:Arial,sans-serif; }
-  #net { font-size:96px; font-weight:bold; color:#fff; text-shadow:0 0 8px rgba(0,0,0,.6); }
-  .pos { color:#4ade80 !important; } .neg { color:#f87171 !important; }
+  html, body { margin:0; background:transparent; font-family:Arial,sans-serif; }
+  #txt { font-size:64px; font-weight:bold; color:#fff; padding:10px 16px; display:inline-block;
+         text-shadow: 0 0 6px #000, 0 0 6px #000, 2px 2px 4px #000; }
+  .pos { color:#22e06b !important; }
+  .neg { color:#ff4d4d !important; }
 </style>
 </head>
 <body>
-<div id="net">0</div>
+<div id="txt">Elo: 0</div>
 <script>
 const USER = "LadyMorphy".toLowerCase();
-const START = Math.floor(Date.now()/1000);
-const DRAW = ["agreed","stalemate","repetition","insufficient","50move","timevsinsufficient"];
+const MODES = ["chess_rapid", "chess_blitz", "chess_bullet"]; // remove any you don't play
+
+function total(stats) {
+  let t = 0;
+  for (const m of MODES) if (stats[m] && stats[m].last) t += stats[m].last.rating;
+  return t;
+}
+
+function getBase() {
+  try { return JSON.parse(localStorage.getItem("eloBase-" + USER)); } catch(e) { return null; }
+}
+function setBase(v) {
+  try { localStorage.setItem("eloBase-" + USER, JSON.stringify(v)); } catch(e) {}
+}
+
+let base = null;
+if (!location.search.includes("reset")) base = getBase();
 
 async function update() {
   try {
-    const d = new Date();
-    const mm = String(d.getUTCMonth()+1).padStart(2,"0");
-    const r = await fetch(`https://api.chess.com/pub/player/${USER}/games/${d.getUTCFullYear()}/${mm}`);
-    const games = (await r.json()).games || [];
-    let net = 0;
-    for (const g of games) {
-      if (g.end_time < START) continue;
-      const me = g.white.username.toLowerCase()===USER ? g.white : g.black;
-      if (me.result==="win") net++;
-      else if (!DRAW.includes(me.result)) net--;
-    }
-    const el = document.getElementById("net");
-    el.textContent = (net>0?"+":"")+net;
-    el.className = net>0?"pos":net<0?"neg":"";
+    const r = await fetch(`https://api.chess.com/pub/player/${USER}/stats`);
+    const stats = await r.json();
+    const now = total(stats);
+    if (base === null) { base = now; setBase(base); }
+    const diff = now - base;
+    const el = document.getElementById("txt");
+    if (diff > 0)      { el.textContent = "Elo gained: +" + diff; el.className = "pos"; }
+    else if (diff < 0) { el.textContent = "Elo lost: " + diff;    el.className = "neg"; }
+    else               { el.textContent = "Elo: 0";               el.className = ""; }
   } catch(e) {}
 }
 update(); setInterval(update, 20000);
