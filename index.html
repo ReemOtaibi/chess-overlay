@@ -4,24 +4,28 @@
 <meta charset="utf-8">
 <style>
   html, body { margin:0; background:transparent; font-family:Arial,sans-serif; }
-  #txt { font-size:64px; font-weight:bold; color:#fff; padding:10px 16px; display:inline-block;
-         text-shadow: 0 0 6px #000, 0 0 6px #000, 2px 2px 4px #000; }
+  #txt { font-size:64px; font-weight:bold; color:#ffd400; padding:10px 16px; display:inline-block;
+         text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 8px #000; }
   .pos { color:#22e06b !important; }
   .neg { color:#ff4d4d !important; }
+  .err { font-size:24px !important; color:#fff !important; }
 </style>
 </head>
 <body>
-<div id="txt">Elo: 0</div>
+<div id="txt">Loading...</div>
 <script>
 const USER = "LadyMorphy".toLowerCase();
 const MODES = ["chess_rapid", "chess_blitz", "chess_bullet"]; // remove any you don't play
+
+// Optional: add ?bg=00b140 to the URL for a solid background (for chroma key)
+const bg = new URLSearchParams(location.search).get("bg");
+if (bg) document.body.style.background = "#" + bg;
 
 function total(stats) {
   let t = 0;
   for (const m of MODES) if (stats[m] && stats[m].last) t += stats[m].last.rating;
   return t;
 }
-
 function getBase() {
   try { return JSON.parse(localStorage.getItem("eloBase-" + USER)); } catch(e) { return null; }
 }
@@ -33,17 +37,21 @@ let base = null;
 if (!location.search.includes("reset")) base = getBase();
 
 async function update() {
+  const el = document.getElementById("txt");
   try {
     const r = await fetch(`https://api.chess.com/pub/player/${USER}/stats`);
+    if (!r.ok) throw new Error("Chess.com error " + r.status + " - check username");
     const stats = await r.json();
     const now = total(stats);
     if (base === null) { base = now; setBase(base); }
     const diff = now - base;
-    const el = document.getElementById("txt");
     if (diff > 0)      { el.textContent = "Elo gained: +" + diff; el.className = "pos"; }
     else if (diff < 0) { el.textContent = "Elo lost: " + diff;    el.className = "neg"; }
     else               { el.textContent = "Elo: 0";               el.className = ""; }
-  } catch(e) {}
+  } catch(e) {
+    el.textContent = "Error: " + e.message;
+    el.className = "err";
+  }
 }
 update(); setInterval(update, 20000);
 </script>
