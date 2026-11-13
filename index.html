@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin:0; height:100%; background:#00b140; display:flex; align-items:center; justify-content:center; font-family:Arial,sans-serif; }
+  #net { font-size:96px; font-weight:bold; color:#fff; text-shadow:0 0 8px rgba(0,0,0,.6); }
+  .pos { color:#4ade80 !important; } .neg { color:#f87171 !important; }
+</style>
+</head>
+<body>
+<div id="net">0</div>
+<script>
+const USER = "LadyMorphy".toLowerCase();
+const START = Math.floor(Date.now()/1000);
+const DRAW = ["agreed","stalemate","repetition","insufficient","50move","timevsinsufficient"];
+
+async function update() {
+  try {
+    const d = new Date();
+    const mm = String(d.getUTCMonth()+1).padStart(2,"0");
+    const r = await fetch(`https://api.chess.com/pub/player/${USER}/games/${d.getUTCFullYear()}/${mm}`);
+    const games = (await r.json()).games || [];
+    let net = 0;
+    for (const g of games) {
+      if (g.end_time < START) continue;
+      const me = g.white.username.toLowerCase()===USER ? g.white : g.black;
+      if (me.result==="win") net++;
+      else if (!DRAW.includes(me.result)) net--;
+    }
+    const el = document.getElementById("net");
+    el.textContent = (net>0?"+":"")+net;
+    el.className = net>0?"pos":net<0?"neg":"";
+  } catch(e) {}
+}
+update(); setInterval(update, 20000);
+</script>
+</body>
+</html>
